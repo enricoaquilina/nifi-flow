@@ -1,0 +1,216 @@
+
+version: "3.9"
+services:
+
+  portainer:
+    image: 'docker.io/portainer/portainer-ce'
+    ports:
+      - "8001:8000"
+      - "9001:9000"
+    command: --admin-password '$$2y$$05$$ZBq/6oanDzs3iwkhQCxF2uKoJsGXA0SI4jdu1PkFrnsKfpCH5Ae4G'
+    volumes:
+      - type: volume
+        source: portainer-data
+        target: /data
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+    networks:
+      internal:
+        aliases:
+          - portainer
+    restart: unless-stopped
+
+  microservice-container:
+    image: 'microservice'
+    container_name: microservice-container
+    ports: 
+      - "3000:80"
+    networks:
+      internal:
+        aliases:
+          - microservice-container
+
+  nifi-1:
+    build: ./nifi
+    restart: unless-stopped
+    ports:
+      - "8443:8443"
+      - "10000:10000"
+    environment:
+      - "SINGLE_USER_CREDENTIALS_USERNAME=admin"
+      - "SINGLE_USER_CREDENTIALS_PASSWORD=ctsBtRBKHRAx69EqUghvvgEvjnaLjFEB"
+      - "NIFI_CLUSTER_NODE_PROTOCOL_PORT=8384"
+      - "NIFI_ZK_CONNECT_STRING=zookeeper-task:2182"
+      - "NIFI_ZK_ROOT_NODE=/nifi-1"
+      - "NIFI_JVM_HEAP_MAX=4096m"
+      - "NIFI_JVM_HEAP_INIT=2048m"
+      - "NIFI_SENSITIVE_PROPS_KEY=VerySafePassword"
+    volumes:
+      - ./nifi/nifi_data:/opt/nifi/nifi-current/data
+      - type: volume
+        source: nifi-1-flowfile_repository
+        target: /opt/nifi/nifi-current/flowfile_repository
+      - type: volume
+        source: nifi-1-logs
+        target: /opt/nifi/nifi-current/logs
+      - type: volume
+        source: nifi-1-provenance_repository
+        target: /opt/nifi/nifi-current/provenance_repository
+      - type: volume
+        source: nifi-1-state
+        target: /opt/nifi/nifi-current/state
+      - type: volume
+        source: nifi-1-conf
+        target: /opt/nifi/nifi-current/conf
+      - type: volume
+        source: nifi-1-content_repository
+        target: /opt/nifi/nifi-current/content_repository
+      - type: volume
+        source: nifi-1-database_repository
+        target: /opt/nifi/nifi-current/database_repository
+    networks:
+      internal:
+        aliases:
+          - nifi-1
+
+  postgres:
+    image: 'postgres'
+    command: postgres -c 'max_connections=200'
+    restart: always
+    ports:
+      - "12306:5432"
+    environment:
+      - "POSTGRES_USER=admin"
+      - "POSTGRES_PASSWORD=ThisPasswordIsSafe"
+      - "POSTGRES_DB=datatask"
+    volumes:
+      - type: volume
+        source: postgres-data
+        target: /var/lib/postgresql/data
+    networks:
+      internal:
+        aliases:
+          - postgres
+
+  zookeeper-task:
+    image: confluentinc/cp-zookeeper:6.2.0
+    hostname: zookeeper-task
+    container_name: zookeeper-task
+    ports:
+      - "2182:2182"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2182
+      ZOOKEEPER_TICK_TIME: 2001
+    networks:
+      internal:
+        aliases:
+          - zookeeper-task
+
+  broker:
+    image: confluentinc/cp-kafka:6.2.0
+    hostname: broker
+    container_name: broker
+    depends_on:
+      - zookeeper-task
+    ports:
+      - "29093:29093"
+      - "9093:9093"
+      - "9102:9102"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper-task:2182'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker:29093,PLAINTEXT_HOST://localhost:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_JMX_PORT: 9102
+      KAFKA_JMX_HOSTNAME: localhost
+    networks:
+      internal:
+        aliases:
+          - broker
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:6.2.0
+    hostname: schema-registry
+    container_name: schema-registry
+    depends_on:
+      - broker
+    ports:
+      - "8081:8081"
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: 'broker:29093'
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+    networks:
+      internal:
+        aliases:
+          - schema-registry
+
+  ksqldb-server:
+    image: confluentinc/cp-ksqldb-server:6.2.0
+    hostname: ksqldb-server
+    container_name: ksqldb-server
+    depends_on:
+      - broker
+    ports:
+      - "8088:8088"
+    environment:
+      KSQL_CONFIG_DIR: "/etc/ksql"
+      KSQL_BOOTSTRAP_SERVERS: "broker:29093"
+      KSQL_HOST_NAME: ksqldb-server
+      KSQL_LISTENERS: "http://0.0.0.0:8088"
+      KSQL_CACHE_MAX_BYTES_BUFFERING: 0
+      KSQL_KSQL_SCHEMA_REGISTRY_URL: "http://schema-registry:8081"
+      KSQL_PRODUCER_INTERCEPTOR_CLASSES: "io.confluent.monitoring.clients.interceptor.MonitoringProducerInterceptor"
+      KSQL_CONSUMER_INTERCEPTOR_CLASSES: "io.confluent.monitoring.clients.interceptor.MonitoringConsumerInterceptor"
+      KSQL_KSQL_CONNECT_URL: "http://connect:8083"
+      KSQL_KSQL_LOGGING_PROCESSING_TOPIC_REPLICATION_FACTOR: 1
+      KSQL_KSQL_LOGGING_PROCESSING_TOPIC_AUTO_CREATE: 'true'
+      KSQL_KSQL_LOGGING_PROCESSING_STREAM_AUTO_CREATE: 'true'
+    networks:
+      internal:
+        aliases:
+          - ksqldb-server
+
+
+  akhq:
+    image: tchiotludo/akhq
+    environment:
+      AKHQ_CONFIGURATION: |
+        akhq:
+          connections:
+            docker-kafka-server:
+              properties:
+                bootstrap.servers: "broker:29093"
+              schema-registry:
+                url: "http://schema-registry:8081"
+              connect:
+                - name: "connect"
+                  url: "http://connect:8083"
+    ports:
+      - 18181:8080
+    links:
+      - broker
+      - schema-registry
+    networks:
+      internal:
+        aliases:
+          - kafkahq
+
+networks:
+  internal:
+
+volumes:
+  portainer-data:
+  postgres-data:
+  nifi-1-flowfile_repository:
+  nifi-1-logs:
+  nifi-1-provenance_repository:
+  nifi-1-state:
+  nifi-1-conf:
+  nifi-1-content_repository:
+  nifi-1-database_repository:
