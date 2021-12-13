@@ -1,0 +1,7 @@
+C:\test\datatask_dockercompose\ms\obj\Debug\net6.0\ms.csproj.AssemblyReference.cache
+C:\test\datatask_dockercompose\ms\obj\Debug\net6.0\ms.GeneratedMSBuildEditorConfig.editorconfig
+C:\test\datatask_dockercompose\ms\obj\Debug\net6.0\ms.AssemblyInfoInputs.cache
+C:\test\datatask_dockercompose\ms\obj\Debug\net6.0\ms.AssemblyInfo.cs
+C:\test\datatask_dockercompose\ms\obj\Debug\net6.0\ms.csproj.CoreCompileInputs.cache
+C:\test\datatask_dockercompose\ms\obj\Debug\net6.0\ms.MvcApplicationPartsAssemblyInfo.cs
+C:\test\datatask_dockercompose\ms\obj\Debug\net6.0\ms.MvcApplicationPartsAssemblyInfo.cache

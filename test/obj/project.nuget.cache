@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "dgSpecHash": "8bngt53ZKLAUjj41qMJ0+lcFsTPVeM6fho9pEiyA8PS04FKiSFxvy/D7w6kWp29Q7r8em14tPYIn/De4d83j/g==",
+  "success": true,
+  "projectFilePath": "C:\\test\\datatask_dockercompose\\test\\test.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\eaquilina\\.nuget\\packages\\confluent.kafka\\1.8.2\\confluent.kafka.1.8.2.nupkg.sha512",
+    "C:\\Users\\eaquilina\\.nuget\\packages\\librdkafka.redist\\1.8.2\\librdkafka.redist.1.8.2.nupkg.sha512",
+    "C:\\Users\\eaquilina\\.nuget\\packages\\system.memory\\4.5.0\\system.memory.4.5.0.nupkg.sha512"
+  ],
+  "logs": []
+}
